@@ -23,6 +23,7 @@ import { audit } from "@/lib/audit";
 import { loadAuthUser, resolveActiveOrg } from "@/lib/auth/server";
 import { ROLE_RANK } from "@/lib/auth/types";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitirEventoAguardado } from "@/lib/event-log/emitir";
 import { mensagemDoEscopo, validarEscopoDaVersao } from "@/lib/ai/agents/escopo";
 import {
   agentMcpCreateSchema,
@@ -409,21 +410,17 @@ export async function publishAgentAction(
     return { ok: false, error: "internal_error" };
   }
 
-  void admin
-    .from("event_log")
-    .insert({
-      organization_id: activeOrg.orgId,
-      event_type: "ai_agent.published",
-      payload: {
-        agent_id: result.agent_id,
-        version_id: result.version_id,
-        previous_version_id: result.previous_version_id,
-        published_at: result.published_at,
-      },
-    })
-    .then(({ error }) => {
-      if (error) console.error("[saveAgentDraftAction/publish] event_log error", error.message);
-    });
+  // Aguardado (Fase 1: fire-and-forget perdia o evento em silêncio).
+  await emitirEventoAguardado(admin, {
+    organization_id: activeOrg.orgId,
+    event_type: "ai_agent.published",
+    payload: {
+      agent_id: result.agent_id,
+      version_id: result.version_id,
+      previous_version_id: result.previous_version_id,
+      published_at: result.published_at,
+    },
+  });
 
   void audit({
     action: "ai_agent.published",
@@ -609,21 +606,17 @@ export async function revertToVersionAction(
     return { ok: false, error: "internal_error" };
   }
 
-  void admin
-    .from("event_log")
-    .insert({
-      organization_id: activeOrg.orgId,
-      event_type: "ai_agent.published",
-      payload: {
-        agent_id: result.agent_id,
-        version_id: result.version_id,
-        previous_version_id: result.previous_version_id,
-        published_at: result.published_at,
-      },
-    })
-    .then(({ error }) => {
-      if (error) console.error("[revertToVersionAction/event_log] error", error.message);
-    });
+  // Aguardado (Fase 1: fire-and-forget perdia o evento em silêncio).
+  await emitirEventoAguardado(admin, {
+    organization_id: activeOrg.orgId,
+    event_type: "ai_agent.published",
+    payload: {
+      agent_id: result.agent_id,
+      version_id: result.version_id,
+      previous_version_id: result.previous_version_id,
+      published_at: result.published_at,
+    },
+  });
 
   void audit({
     action: "ai_agent.reverted",

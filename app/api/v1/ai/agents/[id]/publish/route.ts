@@ -9,7 +9,7 @@ import { requireSupportWrite } from "@/lib/impersonate/support";
  * Validates credential, channel_session, model and tool_ids before commit.
  *
  * Maps validation errors to 422 with stable codes (PublishErrorCode).
- * Emits event_log 'ai_agent.published' fire-and-forget after commit.
+ * Emits event_log 'ai_agent.published' (aguardado desde a Fase 1) after commit.
  */
 import { randomUUID } from "node:crypto";
 import { type NextRequest } from "next/server";
@@ -18,6 +18,7 @@ import { ok, fail } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 import { requireRole } from "@/lib/auth/require-role";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitirEventoAguardado } from "@/lib/event-log/emitir";
 import { publishSchema, PUBLISH_ERROR_CODES } from "@/lib/ai/agents/validation";
 import { VALID_TOOL_IDS } from "@/lib/mcp/tools";
 import { publishAgentVersion } from "@/lib/ai/agents/publish";
@@ -101,22 +102,18 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
     return fail("internal_error", "Erro ao publicar.", 500, { requestId });
   }
 
-  // event_log + audit fire-and-forget.
-  void admin
-    .from("event_log")
-    .insert({
-      organization_id: activeOrg.orgId,
-      event_type: "ai_agent.published",
-      payload: {
-        agent_id: result.agent_id,
-        version_id: result.version_id,
-        previous_version_id: result.previous_version_id,
-        published_at: result.published_at,
-      },
-    })
-    .then(({ error }) => {
-      if (error) console.error("[ai_agents/publish] event_log error", error.message);
-    });
+  // event_log aguardado (Fase 1: fire-and-forget perdia o evento em silêncio);
+  // audit segue fire-and-forget por contrato (trata a própria falha).
+  await emitirEventoAguardado(admin, {
+    organization_id: activeOrg.orgId,
+    event_type: "ai_agent.published",
+    payload: {
+      agent_id: result.agent_id,
+      version_id: result.version_id,
+      previous_version_id: result.previous_version_id,
+      published_at: result.published_at,
+    },
+  });
 
   void audit({
     action: "ai_agent.published",

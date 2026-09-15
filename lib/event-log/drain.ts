@@ -109,6 +109,16 @@ export async function drainEventLog(
     return summary;
   }
 
+  /**
+   * Mortos DESTA rodada, para o aviso na Central (ver bloco após o laço).
+   * A linha `dead` em si persiste com last_error, mas ninguém é pago por ler
+   * tabela — o aviso é o que torna a morte visível (mesma doutrina do
+   * `job_queue`, cujo `failJob` já abre item crítico, e do
+   * `recover-stuck-messages`).
+   */
+  const mortosDaRodada: { organization_id: string; event_type: string; last_error: string; id: string }[] =
+    [];
+
   for (const raw of rows ?? []) {
     const row = raw as unknown as EventRow;
     summary.scanned += 1;
@@ -171,6 +181,14 @@ export async function drainEventLog(
         })
         .eq("id", row.id);
       summary[dead ? "dead" : "failed"] += 1;
+      if (dead) {
+        mortosDaRodada.push({
+          organization_id: row.organization_id,
+          event_type: row.event_type,
+          last_error: errors.map((e) => `${e.consumer_key}: ${e.detail ?? "error"}`).join("; "),
+          id: row.id,
+        });
+      }
     } else {
       // O MOTIVO DE UM `skipped` SOBREVIVE À LINHA.
       //
@@ -207,5 +225,55 @@ export async function drainEventLog(
       summary.done += 1;
     }
   }
+
+  // ─── EVENTO MORRE AVISANDO, NÃO EM SILÊNCIO ─────────────────────────────────
+  //
+  // Antes deste bloco, `status='dead'` era um terminal MUDO: a linha ficava no
+  // banco com last_error, o índice parcial `event_log_dead_idx` a listava, e
+  // NENHUM sinal chegava a quem opera — ao contrário do `job_queue`, cujo
+  // `failJob` abre item crítico na Central na mesma instrução. O contraste é o
+  // próprio bug: a fila do agente acorda alguém, a fila genérica não. O
+  // `event_dead` já estava no CHECK do `agent_inbox_items` desde a criação da
+  // tabela (baseline:6457) — o vocabulário existia, o emissor é que faltava.
+  //
+  // Um item POR ORGANIZAÇÃO por rodada (e não por evento): um backlog morrendo
+  // em lote não pode transformar a Central em spam — o corpo lista os tipos e o
+  // primeiro last_error. Falha de write no aviso é logada e NÃO derruba o
+  // drain (o desfecho dos eventos já foi persistido; o aviso é best-effort,
+  // como o `audit()`).
+  if (mortosDaRodada.length) {
+    const porOrg = new Map<string, typeof mortosDaRodada>();
+    for (const morto of mortosDaRodada) {
+      const lista = porOrg.get(morto.organization_id) ?? [];
+      lista.push(morto);
+      porOrg.set(morto.organization_id, lista);
+    }
+    for (const [organization_id, mortos] of porOrg) {
+      const tipos = [...new Set(mortos.map((m) => m.event_type))].sort();
+      const { error: inboxErr } = await admin.from("agent_inbox_items").insert({
+        organization_id,
+        kind: "event_dead",
+        severity: "critical",
+        title:
+          mortos.length === 1
+            ? "Um evento falhou em definitivo"
+            : `${mortos.length} eventos falharam em definitivo`,
+        body:
+          `Tipos: ${tipos.join(", ")}. Após ${MAX_ATTEMPTS} tentativas com erro, ` +
+          `os eventos foram marcados como dead e NÃO serão reprocessados — ` +
+          `o efeito depende de nova ocorrência ou de ação manual. ` +
+          `Último erro: ${mortos[0]!.last_error.slice(0, 400)}`,
+        ref_kind: "event_log",
+        ref_id: mortos[0]!.id,
+      });
+      if (inboxErr) {
+        logger.error("[event-log.drain] aviso de evento dead na Central falhou", {
+          error: inboxErr.message,
+          organization_id,
+        });
+      }
+    }
+  }
+
   return summary;
 }

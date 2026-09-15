@@ -10,6 +10,39 @@ audited_against: origin/main @ 789dfa6 (v1.0.0, 2026-07-27)
 
 # Threat model — DeskcommCRM self-host
 
+> ## ADENDO DE RE-AUDITORIA — FASE 1 (2026-09-14, branch `phase-0-audit`)
+>
+> Re-auditado contra o código atual no fim da Fase 1 (fundação/segurança). O corpo abaixo é
+> o retrato de 2026-07-29 e continua valendo como registro; esta é a disposição ATUAL dos
+> riscos T1–T7, com o que a Fase 1 mudou:
+>
+> | Item | Disposição | Evidência atual |
+> |---|---|---|
+> | T1 (sem rate limit em auth) | **FECHADO** (desde 2026-08) + Fase 1 estendeu à BORDA: `/api/v1/cron/*` (22), `/api/internal/*`, `/api/mcp`, `/api/v1/system/*` e `/auth/confirm` agora têm teto por prefixo por IP no `proxy.ts` (`lib/auth/rate-limit-edge.ts`, fail-open, sem IP identificável = não limita, webhooks fora de propósito). Webhooks HMAC e `/api/v1/webhooks/in/[token]` mantêm os guardas próprios (o `in` já tinha 60/min) | `proxy.ts`, `lib/auth/rate-limit-edge.ts` |
+> | T2 (fallback in-memory) | PARCIAL — inalterado pela Fase 1: Upstash obrigatório em prod; degradação por-processo quando Redis cai segue documentada (LOW-MED) | `lib/env.ts`, `lib/ai/dispatcher/rate-limit.ts` |
+> | T3 (service-role sem gate de escrita) | **FECHADO PELA FASE 1**: novo gate `tests/unit/varredura-org-em-handlers-admin.test.ts` — todo arquivo sob `app/` que importa `createAdminClient` precisa manipular identidade de org no código (convenção `organizationId`/`orgId`/`organization_id`/`p_org*`) ou estar na allowlist de 15 casos cross-org por natureza, cada um com justificativa escrita; allowlist só encolhe. O gate é CERCA DE ENTRADA (não prova correção do filtro — a prova de fundo continua sendo os invariantes comportamentais de `test:db`) | novo teste; 182 importers auditados |
+> | T4 (dev-fallback do convite) | **FECHADO PELA FASE 1**: o literal `"dev-fallback"` foi eliminado (`lib/auth/invite-token.ts`). Sem secret (dev), segredo ALEATÓRIO por processo com warn; valores vazios são tratados como ausentes (terceiro estado do `.env.example`); `INVITE_TOKEN_SECRET` entrou no contrato de env e no `.env.example`. Regressão travada por `lib/auth/invite-token.test.ts` (token forjado com a chave antiga DEVE ser recusado) | `lib/auth/invite-token.ts` + teste |
+> | T5 (secrets fora do .env.example) | FECHADO (2026-08) — e a Fase 1 removeu `CPF_ENCRYPTION_KEY` do contrato (decisão de hash pseudônimo) sem deixar buraco: ver R2 abaixo | `lib/env.ts`, `.env.example` |
+> | T6 (SSRF E2E fora do CI) | FECHADO (2026-08) — inalterado | `.github/workflows/e2e.yml` |
+> | T7 (sem secret scanning) | **FECHADO PELA FASE 1**: job `secrets` no `ci.yml` roda `gitleaks-action@v2` sobre o histórico inteiro (`fetch-depth: 0`); presença vigiada por `tests/unit/ci-gitleaks-presente.test.ts`. O lado PII dos PNGs de evidência (363 arquivos) continua aberto como POLÍTICA de revisão humana — gitleaks não lê imagem (LOW-MED, ver doc 08 R7) | `.github/workflows/ci.yml` |
+>
+> **Novo em vigor pela Fase 1:** CSP + HSTS em toda resposta (`next.config.ts`; CSP com
+> `script-src 'unsafe-inline'`/`'unsafe-eval'` enquanto não houver infra de nonce — parte
+> fraca documentada; `connect-src` restrito a self+Supabase; `object-src 'none'`,
+> `base-uri 'self'`, `frame-ancestors 'none'`; HSTS sem includeSubDomains de propósito).
+> Vigia: `tests/unit/headers-seguranca.test.ts`.
+>
+> **Modelo de CPF (decisão aprovada):** hash PSEUDÔNIMO sha256 sem salt (`lib/contacts/cpf.ts`);
+> NÃO é proteção de confidencialidade — a proteção de repouso do CPF é a superfície (RLS,
+> anonimização LGPD que zera o hash, audit append-only). Criptografia reversível foi
+> recusada nesta fase (DECISIONS.md D17). O `cpf_encrypted` segue coluna reservada vazia.
+>
+> **Riscos restantes após a Fase 1** (completo no doc 22): R2 parcial (hash pseudônimo é
+> decisão assumida, documentada), T2 parcial, PII em evidências visuais, e a verificação
+> EXECUTADA da suíte (a máquina desta sessão não tem Node — os gates rodam no CI/na máquina
+> de dev; ver `docs/our-product/22-phase-1-completion-report.md` §verificação).
+
+
 Complementa [`SECURITY.md`](../SECURITY.md), que é política de *reporte*. Este documento é
 o inventário da **superfície de ataque real**: o que fica exposto quando alguém sobe o
 DeskcommCRM numa VPS com IP público.

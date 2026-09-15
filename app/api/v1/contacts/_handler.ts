@@ -17,7 +17,7 @@ import { traduzir } from "@/lib/i18n/dicionario";
 import type { Idioma } from "@/lib/i18n/idiomas";
 import { roleAtLeast } from "@/lib/auth/types";
 import { canonicalPhoneBR, phoneLookupVariants } from "@/lib/channels/phone-variants";
-import { hashCpf, encryptCpfSql } from "@/lib/contacts/cpf";
+import { hashCpf } from "@/lib/contacts/cpf";
 import type { Contact } from "@/lib/types/contacts";
 import { ensureConversation, sessaoProntaParaEnvio } from "@/lib/automation/start-conversation";
 import type {
@@ -388,9 +388,9 @@ export async function createContactHandler(
   };
 
   if (input.cpf) {
+    // Fase 1: só hash pseudônimo — não há criptografia reversível de CPF
+    // (decisão em docs/our-product/DECISIONS.md (D17); lib/contacts/cpf.ts).
     insertRow.cpf_hash = hashCpf(input.cpf);
-    const enc = await encryptCpfSql(supabase, input.cpf);
-    if (enc) insertRow.cpf_encrypted = enc;
   }
 
   const { data: created, error: insErr } = await supabase
@@ -535,9 +535,8 @@ export async function patchContactHandler(
     patch.consent = { ...anterior, ...input.consent };
   }
   if (input.cpf !== undefined) {
+    // Fase 1: só hash pseudônimo (docs/our-product/DECISIONS.md (D17)).
     patch.cpf_hash = hashCpf(input.cpf);
-    const enc = await encryptCpfSql(supabase, input.cpf);
-    if (enc) patch.cpf_encrypted = enc;
   }
 
   if (Object.keys(patch).length === 0) {

@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { requirePlatformAdmin } from "@/lib/auth/requirePlatformAdmin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitirEventoAguardado } from "@/lib/event-log/emitir";
 import { ok, fail } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 
@@ -101,8 +102,8 @@ export async function POST(
     },
   });
 
-  // Domain event for downstream consumers
-  void admin.from("event_log").insert({
+  // Domain event for downstream consumers — aguardado (Fase 1).
+  await emitirEventoAguardado(admin, {
     organization_id: tenantId,
     entity_kind: "organization",
     entity_id: tenantId,

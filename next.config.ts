@@ -53,6 +53,55 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
+    // ─── CSP + HSTS (Fase 1, risco R5) ──────────────────────────────────────
+    //
+    // A origem do Supabase entra DINÂMICA: `next.config` roda no boot do
+    // servidor (`next start`/standalone), então `process.env` aqui é o do
+    // runtime, não do build — e o clone self-host tem o URL dele. Fallback em
+    // wildcard cobre build sem env (preview).
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    // Origem tal qual (o esquema http de um Supabase local de dev é válido em
+    // connect-src); a variante ws/wss deriva trocando o esquema.
+    const supabaseOrigem = supabaseUrl
+      ? [supabaseUrl.replace(/\/$/, "")]
+      : ["https://*.supabase.co", "https://*.supabase.in"];
+    const supabaseWs = supabaseUrl
+      ? [supabaseUrl.replace(/^http/, "ws").replace(/\/$/, "")]
+      : ["wss://*.supabase.co", "wss://*.supabase.in"];
+
+    /**
+     * Escolhas de política, com a razão:
+     *  - `script-src 'unsafe-inline' 'unsafe-eval'`: sem infra de nonce, o
+     *    bootstrap do Next e o refresh do dev exigem ambos. É a parte fraca da
+     *    CSP — o valor real está em object-src/base-uri/frame-ancestors
+     *    (anti-embed, anti-plugin, anti-base hijack) e em restringir onde o
+     *    browser pode falar. Endurecer para nonce é trabalho de app, não de
+     *    header, e fica anotado como dívida no doc 21.
+     *  - `connect-src`: só self + Supabase. Verificado no código: o browser
+     *    fala com o próprio app (SSE de voz `/api/v1/voice/events`, Realtime
+     *    via supabase-js, tunnel do Sentry em `/monitoring`) — o WebRTC do
+     *    WACALLS não é governado por connect-src. O PDF/mídia entra por URL
+     *    assinada do Supabase (img/media).
+     *  - `upgrade-insecure-requests` só em produção: em dev (http://localhost)
+     *    ele quebraria todos os subrecursos.
+     */
+    const csp = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:",
+      `connect-src 'self' ${[...supabaseOrigem, ...supabaseWs].join(" ")}`,
+      "media-src 'self' blob: https:",
+      "worker-src 'self'",
+      "manifest-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      ...(process.env.NODE_ENV === "production" ? ["upgrade-insecure-requests"] : []),
+    ].join("; ");
+
     return [
       {
         source: "/notify-sw.js",
@@ -67,6 +116,11 @@ const nextConfig: NextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // HSTS sem includeSubDomains de propósito: o domínio do self-hoster
+          // pode carregar outros serviços em subdomínios que não falam HTTPS —
+          // forçá-los via HSTS do CRM seria quebrar a máquina de outra pessoa.
+          { key: "Strict-Transport-Security", value: "max-age=15552000" },
+          { key: "Content-Security-Policy", value: csp },
           // microphone=(self): o gravador de voz do composer (PTT estilo WhatsApp)
           // usa getUserMedia({audio}); microphone=() bloquearia em TODA origem,
           // inclusive a própria — daria "microphone is not allowed in this document".

@@ -351,7 +351,7 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
     const { data, error } = await admin
       .from("contacts")
       .select(
-        "id, name, display_name, email, phone_number, cpf_encrypted, birthdate, is_blocked, is_anonymized, consent, tags, source, source_metadata, custom_fields, created_at, last_activity_at",
+        "id, name, display_name, email, phone_number, cpf_encrypted, cpf_hash, birthdate, is_blocked, is_anonymized, consent, tags, source, source_metadata, custom_fields, created_at, last_activity_at",
       )
       .eq("organization_id", organizationId)
       .eq("id", contactId)
@@ -369,7 +369,10 @@ export async function collectExportData(args: CollectArgs): Promise<ExportPayloa
         display_name: data.display_name ?? null,
         email: data.email ?? null,
         phone_number: data.phone_number ?? null,
-        cpf_present: Boolean(data.cpf_encrypted),
+        // Fase 1: sem criptografia de CPF, a presença vem do HASH (pseudônimo)
+        // — reportar cpf_present=false para contato COM CPF seria relatório
+        // LGPD mentindo por omissão.
+        cpf_present: Boolean(data.cpf_encrypted || data.cpf_hash),
         birthdate: data.birthdate ?? null,
         is_blocked: Boolean(data.is_blocked),
         is_anonymized: Boolean(data.is_anonymized),

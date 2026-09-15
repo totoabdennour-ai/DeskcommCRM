@@ -56,6 +56,10 @@ const TETOS: Record<string, { minutos: number; razao: string }> = {
     minutos: 20,
     razao: "sobe Postgres e aplica o baseline; trabalho real p90 325s",
   },
+  "ci.yml::secrets": {
+    minutos: 5,
+    razao: "gitleaks sobre o histórico inteiro (Fase 1); varredura pura, sem suíte — 5min é folga",
+  },
 };
 
 interface Linha {

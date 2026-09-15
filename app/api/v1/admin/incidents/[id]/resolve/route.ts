@@ -13,6 +13,7 @@ import { randomUUID } from "node:crypto";
 
 import { requirePlatformAdmin } from "@/lib/auth/requirePlatformAdmin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { emitirEventoAguardado } from "@/lib/event-log/emitir";
 import { ok, fail } from "@/lib/api/wrappers";
 import { audit } from "@/lib/audit";
 
@@ -100,8 +101,8 @@ export async function POST(
     },
   });
 
-  // Domain event (fire-and-forget)
-  void admin.from("event_log").insert({
+  // Domain event — aguardado (Fase 1: fire-and-forget perdia o evento em silêncio).
+  await emitirEventoAguardado(admin, {
     organization_id: incident.organization_id,
     entity_kind: "incident",
     entity_id: id,

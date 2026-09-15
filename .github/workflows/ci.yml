@@ -83,3 +83,21 @@ jobs:
 
       - name: RLS isolation + governance invariants
         run: pnpm test:db
+
+  # Varredura de secrets (Fase 1, risco R7 do docs/our-product/08).
+  # Roda sobre o histórico inteiro (fetch-depth: 0) porque secret commitado não
+  # deixa de vazar por ser removido depois — e o repo é público.
+  # A presença deste job é vigiada por tests/unit/ci-gitleaks-presente.test.ts:
+  # o guard reprova um PR que o remova silenciosamente.
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks (varredura de secrets no histórico e no diff)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

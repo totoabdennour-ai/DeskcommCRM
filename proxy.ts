@@ -3,6 +3,7 @@ import { cookieSecure } from "@/lib/supabase/cookie-secure";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { isPublicPath } from "@/lib/auth/public-paths";
+import { edgeRateLimited, ipDaBorda } from "@/lib/auth/rate-limit-edge";
 import {
   verifyImpersonateCookieEdge,
   IMPERSONATE_COOKIE_NAME_EDGE,
@@ -21,6 +22,31 @@ export async function proxy(request: NextRequest) {
   // Expose pathname to Server Components via header (used by onboarding layout).
   response.headers.set("x-pathname", pathname);
   request.headers.set("x-pathname", pathname);
+
+  // Fase 1 (risco R4): teto de tentativas por prefixo na frente dos guards de
+  // secret (crons, /api/internal, /api/mcp, /api/v1/system, /auth/confirm).
+  // Antes da checagem de público de propósito: essas superfícies são públicas
+  // por path e o limite é justamente a defesa delas. Fail-open embutido no
+  // módulo — a borda nunca morre por causa do limitador.
+  const edgeIp = ipDaBorda(request);
+  if (await edgeRateLimited(pathname, edgeIp)) {
+    return new NextResponse(
+      JSON.stringify({
+        error: {
+          code: "rate_limited",
+          message: "Too many requests",
+        },
+      }),
+      {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          "x-request-id": requestId,
+          "retry-after": "60",
+        },
+      },
+    );
+  }
 
   // EPIC-11: in dev we route by path (`/admin/*`); in prod the
   // `admin.deskcomm.com` sub-domain is mapped via Vercel rewrites to the same

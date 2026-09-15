@@ -6,16 +6,56 @@
  *   - body = base64url(JSON({invite_id, email, organization_id, role, exp}))
  *   - sig  = base64url(HMAC_SHA256(secret, body))
  *
- * Secret resolution: INVITE_TOKEN_SECRET → INTERNAL_SECRET → "dev-fallback".
- * Production deployments MUST set one of the first two. Verification uses
- * `timingSafeEqual` to avoid timing oracles.
+ * Secret resolution: INVITE_TOKEN_SECRET → INTERNAL_SECRET. Production
+ * deployments MUST set one of the two (`INTERNAL_SECRET` is `required()` in
+ * `lib/env.ts` — the boot fails closed without it).
+ *
+ * Fase 1 (docs/our-product/DECISIONS.md, D17): the literal `"dev-fallback"` is
+ * GONE. It was repo-public knowledge — anyone with the open-source repo could
+ * forge a valid invite (payload includes `organization_id` + `role`, i.e.
+ * admin in any org). When neither secret is configured (dev only), the module
+ * mints a RANDOM per-process secret with a loud warning: signatures verify
+ * within the same process (the only dev topology), survive nothing across
+ * restarts, and are NOT forgeable from repository knowledge. Empty-string env
+ * values are treated as absent (a present-empty key must NOT become the HMAC
+ * key). Verification still uses `timingSafeEqual`.
  */
 import { z } from "zod";
 import { interfaceSettingsSchema, type InterfaceSettings } from "@/lib/navigation/interface";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { logger } from "@/lib/logger";
 
-const SECRET = (): string =>
-  process.env.INVITE_TOKEN_SECRET ?? process.env.INTERNAL_SECRET ?? "dev-fallback";
+let devSecretPorProcesso: string | null = null;
+let avisoJaDado = false;
+
+const SECRET = (): string => {
+  // Vazio NÃO é segredo: o `.env.example` entrega as chaves PRESENTES E VAZIAS
+  // (doutrina do teste env-vazia-no-exemplo), e "" passado ao createHmac seria
+  // uma assinatura com chave nula. Para um SECRET, vazio = ausente — pular
+  // vazios aqui é a política correta, e é o que faz o third-state
+  // (presente-vazio) cair corretamente para INTERNAL_SECRET.
+  const declarado = [process.env.INVITE_TOKEN_SECRET, process.env.INTERNAL_SECRET].find(
+    (s) => typeof s === "string" && s.length > 0,
+  );
+  if (declarado) return declarado;
+
+  // Dev sem secret nenhum: segredo ALEATÓRIO deste processo, nunca uma
+  // constante pública. Assina e verifica dentro do mesmo processo (a única
+  // topologia em que o fallback é alcançável — em produção o boot já falhou
+  // sem INTERNAL_SECRET).
+  if (!devSecretPorProcesso) {
+    devSecretPorProcesso = randomBytes(32).toString("hex");
+  }
+  if (!avisoJaDado) {
+    avisoJaDado = true;
+    logger.warn(
+      "[invite-token] nenhum secret configurado (INVITE_TOKEN_SECRET|INTERNAL_SECRET) — " +
+        "usando segredo aleatório EFÊMERO deste processo: tokens de convite não " +
+        "sobrevivem a restart. Configure INVITE_TOKEN_SECRET para persistência.",
+    );
+  }
+  return devSecretPorProcesso;
+};
 
 export interface InvitePayload {
   interface_settings?: InterfaceSettings;

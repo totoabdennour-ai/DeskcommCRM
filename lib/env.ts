@@ -74,6 +74,14 @@ const schema = z.object({
   INTERNAL_SECRET: required("INTERNAL_SECRET"),
   /** Optional dedicated secret for cron endpoints (S-06.07 onwards). */
   INTERNAL_CRON_SECRET: z.string().optional().default(""),
+  /**
+   * Secret opcional e DEDICADO do token de convite (HMAC de
+   * `lib/auth/invite-token.ts`). Se vazio, cai para INTERNAL_SECRET. Declarada
+   * aqui para existir no contrato de env (Fase 1): antes ela só era lida de
+   * `process.env` cru e nem constava do `.env.example` — o operador não sabia
+   * que podia separar o secret de convite do secret geral.
+   */
+  INVITE_TOKEN_SECRET: z.string().optional().default(""),
 
   /**
    * Retenção do arquivo do corpo cru dos webhooks (`webhook_events_log`).
@@ -110,8 +118,11 @@ const schema = z.object({
   LEAD_CAPTURE_RETENTION_DAYS: z.string().optional().default(""),
 
   // Encryption keys (pgcrypto)
-  CPF_ENCRYPTION_KEY: required("CPF_ENCRYPTION_KEY"),
-  // Opcional (template genérico) — só necessária ao ligar NUVEMSHOP_ENABLED.
+  // CPF: decisão da Fase 1 (docs/our-product/DECISIONS.md (D17)) — hash PSEUDÔNIMO (sha256 sem
+  // salt, `lib/contacts/cpf.ts`), SEM criptografia reversível. A chave
+  // CPF_ENCRYPTION_KEY foi REMOVIDA do contrato: não há mais quem a leia
+  // (o RPC `encrypt_cpf` nunca existiu no schema e o caminho foi apagado).
+  // O da Nuvemshop é opcional — só necessária ao ligar NUVEMSHOP_ENABLED.
   NUVEMSHOP_OAUTH_ENCRYPTION_KEY: z.string().optional().default(""),
   WAHA_BYO_ENCRYPTION_KEY: required("WAHA_BYO_ENCRYPTION_KEY"),
   /**
