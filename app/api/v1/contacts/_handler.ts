@@ -31,7 +31,7 @@ import { contactListQuerySchema } from "@/lib/schemas";
 type SB = SupabaseClient;
 
 const SELECT_COLS =
-  "id, organization_id, name, display_name, email, email_normalized, phone_number, cpf_hash, birthdate, is_blocked, blocked_reason, is_anonymized, anonymized_at, is_merged_into, merged_at, consent, tags, source, source_metadata, custom_fields, created_at, updated_at, last_activity_at";
+  "id, organization_id, name, display_name, email, email_normalized, phone_number, cpf_hash, account_id, birthdate, is_blocked, blocked_reason, is_anonymized, anonymized_at, is_merged_into, merged_at, consent, tags, source, source_metadata, custom_fields, created_at, updated_at, last_activity_at";
 
 interface CursorPayload {
   sort: string | null;
@@ -537,6 +537,31 @@ export async function patchContactHandler(
   if (input.cpf !== undefined) {
     // Fase 1: só hash pseudônimo (docs/our-product/DECISIONS.md (D17)).
     patch.cpf_hash = hashCpf(input.cpf);
+  }
+  if (input.account_id !== undefined) {
+    // Conta B2B (0239): o vínculo tem de ser da MESMA organização. A validação
+    // aqui dá 422 legível ao operador; a AUTORIDADE é o banco
+    // (trg_contacts_valida_conta — a FK simples não enxerga tenant). O client
+    // é o de sessão: RLS devolve zero linhas para conta de outra org, que
+    // cai no mesmo 422 de "não encontrada". `null` desvincula.
+    if (input.account_id !== null) {
+      const { data: conta } = await supabase
+        .from("accounts")
+        .select("id")
+        .eq("id", input.account_id)
+        .eq("organization_id", ctx.organization_id)
+        .maybeSingle();
+      if (!conta) {
+        throw new ApiError(
+          422,
+          "validation_failed",
+          undefined,
+          ctx.requestId,
+          traduzir("Conta não encontrada nesta organização.", ctx.idioma ?? "pt-BR"),
+        );
+      }
+    }
+    patch.account_id = input.account_id;
   }
 
   if (Object.keys(patch).length === 0) {

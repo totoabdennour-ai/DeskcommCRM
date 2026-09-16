@@ -224,6 +224,20 @@ export const NAV_CATALOG = [
     // Inbox e o funil, que continuam no menu.
   },
   {
+    // Fundação B2B do RevenueOS (Fase 2, migration 0239): a EMPRESA-CLIENTE.
+    // O funil e a conversa operam sobre pessoas (contacts); no atacado, quem
+    // negocia é a conta — referência externa, ciclo de vida e o rep moram aqui,
+    // e é nela que pricing (Fase 3) e pedido (Fase 4) vão ancorar. Como
+    // Produtos, é insumo de venda: CADASTRA-se aqui, vende-se na conversa.
+    // Por isso também SEM `sidebar`: atrás de "Ver tudo em CRM".
+    href: "/app/accounts",
+    label: "Contas B2B",
+    description: "As empresas-cliente — quem assina o pedido e recebe as condições comerciais.",
+    icon: "Buildings",
+    group: "crm",
+    section: "Preparar a venda",
+  },
+  {
     // A promessa que o comentário da Agenda fazia desde que ela nasceu. Aqui se
     // decide O QUE se pode marcar, quanto dura e quem atende — e é isto que a
     // tela de marcar e o agente de IA oferecem ao cliente.

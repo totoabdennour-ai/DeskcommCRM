@@ -5,6 +5,8 @@
 export interface Contact {
   id: string;
   organization_id: string;
+  /** Conta B2B da pessoa (0239) — opcional: B2C segue sem conta. */
+  account_id: string | null;
   name: string | null;
   display_name: string | null;
   email: string | null;

@@ -68,6 +68,14 @@ export type ContactCreate = z.infer<typeof contactCreateSchema>;
 
 export const contactPatchSchema = contactCreateSchema.partial().extend({
   source: z.string().min(1).optional(),
+  /**
+   * Conta B2B da pessoa (0239). Só no PATCH de propósito: criar contato é um
+   * fluxo B2C-quente (webhook, ingest, importador) que não deve ganhar um
+   * campo que ninguém manda; o VÍNCULO é trabalho do operador na tela, depois
+   * do contato existir. `null` desvincula. A MESMA ORGANIZAÇÃO é validada no
+   * handler E no banco (trg_contacts_valida_conta).
+   */
+  account_id: z.string().uuid().nullable().optional(),
 });
 export type ContactPatch = z.infer<typeof contactPatchSchema>;
 

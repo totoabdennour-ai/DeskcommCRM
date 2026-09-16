@@ -270,6 +270,15 @@ const PARES: Array<{
     arquivo: "lib/schemas/team.ts",
     simbolo: "ROLES",
   },
+  {
+    tabela: "accounts",
+    coluna: "status",
+    // lib/schemas/contas.ts → StatusDaConta (tupla `as const`). Migration 0239
+    // (fundação B2B, Fase 2): o CHECK do ciclo de vida da conta e o
+    // `z.enum(CONTAS_STATUS)` das rotas nascem juntos — par no mesmo commit.
+    arquivo: "lib/schemas/contas.ts",
+    simbolo: "StatusDaConta",
+  },
 ];
 
 /** Tira um nível de parênteses externos, se ele envolver a expressão inteira. */

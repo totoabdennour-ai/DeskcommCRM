@@ -221,6 +221,19 @@ beforeAll(() => {
             values (v_org, 'RLS-' || v_org::text, 'Produto de invariante', 100);
         end if;
 
+        -- accounts (migration 0239): a empresa-cliente do tenant. Entra com
+        -- external_id para o índice parcial único também ser exercitado no
+        -- seed de cada org.
+        if not exists (select 1 from public.accounts where organization_id = v_org) then
+          insert into public.accounts (organization_id, name, external_id)
+            values (v_org, 'Distribuidora Invariante', 'RLS-ERP-' || v_org::text);
+        end if;
+        update public.contacts set account_id = (
+          select id from public.accounts where organization_id = v_org limit 1
+        )
+        where organization_id = v_org and account_id is null
+          and display_name = 'RLS Invariant Contact';
+
         -- crm_tasks (migration 0210): o que o time combinou fazer, com prazo.
         -- Entra COM o vínculo de lead porque a tarefa presa a um negócio é o
         -- caso que cruza duas tabelas tenant-aware — se a policy vazasse, o
@@ -308,6 +321,12 @@ export const TABLES = [
   // exige `manager` — esse segundo eixo é medido em
   // `tests/invariants/catalogo-so-gestor-muda-preco.test.ts`, não aqui.
   "catalog_products",
+  // migration 0239 — as contas B2B (a empresa-cliente do tenant). A conta é
+  // a âncora de pricing/pedidos da Fase 3-4: vazar uma linha é entregar ao
+  // vizinho QUEM o negócio atende no atacado e sua referência externa de ERP.
+  // Leitura org-flat; a ESCRITA de manager é do molde catalog_products e o
+  // vínculo same-org do contato é medido em `tests/invariants/contas-vinculo.test.ts`.
+  "accounts",
   // migration 0210 — as tarefas do CRM. A leitura é org-scoped sem gate de papel
   // (o `viewer` precisa ver o que o time combinou); a ESCRITA exige `agent`, e
   // esse segundo eixo NÃO é medido aqui — o usuário semeado é `agent`, então o

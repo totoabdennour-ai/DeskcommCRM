@@ -17,8 +17,10 @@ import { Label } from "@/components/ui/label";
 import { contactPatchSchema, type ContactPatch } from "@/lib/schemas/contacts";
 import { useUpdateContact } from "@/hooks/contacts/useUpdateContact";
 import { CustomFieldsEditor, type CustomFieldDef } from "@/components/contacts/CustomFieldsEditor";
+import type { Conta } from "@/lib/schemas/contas";
 import type { Contact } from "@/lib/types/contacts";
 import { phoneForDisplay } from "@/lib/channels/phone-variants";
+import { apiClient } from "@/lib/api/client";
 
 interface FormShape {
   name?: string;
@@ -40,6 +42,32 @@ export function EditContactDialog({ contact, open, onOpenChange, customFieldDefs
   const t = useT();
   const update = useUpdateContact(contact.id);
   const [serverError, setServerError] = useState<string | null>(null);
+  // Conta B2B (0239): a lista só entra no diálogo quando ele abre — a tela de
+  // contatos não precisa dela até o operador editar alguém.
+  const [contas, setContas] = useState<Conta[]>([]);
+  const [contaSelecionada, setContaSelecionada] = useState<string | null>(contact.account_id ?? null);
+
+  useEffect(() => {
+    if (!open) return;
+    let ativo = true;
+    // O reset do vínculo NÃO roda no corpo síncrono do effect (regra
+    // react-hooks/set-state-in-effect): viaja na mesma microtask do fetch.
+    const carregar = async () => {
+      setContaSelecionada(contact.account_id ?? null);
+      try {
+        const lista = await apiClient.get<Conta[]>("/api/v1/accounts");
+        if (ativo) setContas(lista ?? []);
+      } catch {
+        // Sem contas (ou erro), o select fica vazio — o vínculo segue pelo
+        // estado atual, nunca zera o vínculo existente por uma falha de rede.
+        if (ativo) setContas([]);
+      }
+    };
+    void carregar();
+    return () => {
+      ativo = false;
+    };
+  }, [open, contact]);
 
   const form = useForm<FormShape>({
     defaultValues: {
@@ -80,6 +108,12 @@ export function EditContactDialog({ contact, open, onOpenChange, customFieldDefs
     // Sempre no payload, mesmo vazio: o PATCH SUBSTITUI, e é assim que apagar um
     // campo pela tela chega ao banco.
     payload.custom_fields = values.custom_fields ?? {};
+    // O vínculo de conta só entra quando MUDOU — enviar `null` indevidamente
+    // desvincularia o contato por causa de uma lista que falhou a carregar.
+    const contaAtual = contact.account_id ?? null;
+    if ((contaSelecionada ?? null) !== contaAtual) {
+      payload.account_id = contaSelecionada;
+    }
 
     const parsed = contactPatchSchema.safeParse(payload);
     if (!parsed.success) {
@@ -118,6 +152,30 @@ export function EditContactDialog({ contact, open, onOpenChange, customFieldDefs
           <div className="space-y-2">
             <Label htmlFor="ec-tags">Tags</Label>
             <Input id="ec-tags" {...form.register("tagsRaw")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="ec-conta">
+              {t("Conta B2B")} <span className="text-muted-foreground">{t("(opcional)")}</span>
+            </Label>
+            <select
+              id="ec-conta"
+              value={contaSelecionada ?? ""}
+              onChange={(e) => setContaSelecionada(e.target.value === "" ? null : e.target.value)}
+              className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              data-testid="contato-conta"
+            >
+              <option value="">{t("Sem conta (pessoa avulsa)")}</option>
+              {contas
+                .filter((c) => c.status === "active" || c.id === (contact.account_id ?? ""))
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              {t("A empresa deste contato no atendimento B2B — quem assina o pedido e recebe as condições.")}
+            </p>
           </div>
           {customFieldDefs.length > 0 && (
             <div className="space-y-3 rounded-md border border-border p-3">

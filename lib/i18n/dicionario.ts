@@ -8394,6 +8394,35 @@ export const DICIONARIO: Traducoes = {
   },
   "Convite reenviado.": { es: "Invitación reenviada." },
   "Convite revogado.": { es: "Invitación revocada." },
+  // ── Contas B2B (Fase 2, migration 0239) — tela e diálogo de vínculo ──
+  "Contas B2B": { es: "Cuentas B2B" },
+  "Nova conta": { es: "Nueva cuenta" },
+  "Conta cadastrada": { es: "Cuenta registrada" },
+  "Conta atualizada": { es: "Cuenta actualizada" },
+  "Referência externa": { es: "Referencia externa" },
+  // "Ativa"/"Inativa"/"Arquivada" já existem (linhas 1665/3215/4425, chaves
+  // sem aspas, MESMA tradução) — duplicar quebra o build (TS1117).
+  "Salvar conta": { es: "Guardar cuenta" },
+  // "Editar"/"Arquivar"/"Reativar"/"Cancelar" já existem no dicionário
+  // (chaves sem aspas nas linhas 494/506/653/2089) com a MESMA tradução —
+  // duplicá-las aqui quebra o build (TS1117: property duplicada).
+  "Buscar por nome ou referência externa": { es: "Buscar por nombre o referencia externa" },
+  "O nome da conta é obrigatório.": { es: "El nombre de la cuenta es obligatorio." },
+  "O identificador que o ERP ou a planilha usa para esta conta. Não pode repetir.": {
+    es: "El identificador que el ERP o la planilla usa para esta cuenta. No puede repetirse.",
+  },
+  "As empresas-cliente. É da conta que saem as condições comerciais — o preço e o pedido da Fase 3-4 ancoram aqui.": {
+    es: "Las empresas cliente. De la cuenta salen las condiciones comerciales — el precio y el pedido de la Fase 3-4 anclan aquí.",
+  },
+  "Nenhuma conta cadastrada ainda": { es: "Ninguna cuenta registrada todavía" },
+  "Cadastre a empresa-cliente e vincule os contatos a ela na edição do contato. Vender sem conta funciona como sempre.": {
+    es: "Registra la empresa cliente y vincula los contactos a ella en la edición del contacto. Vender sin cuenta funciona como siempre.",
+  },
+  "Conta B2B": { es: "Cuenta B2B" },
+  "Sem conta (pessoa avulsa)": { es: "Sin cuenta (persona suelta)" },
+  "A empresa deste contato no atendimento B2B — quem assina o pedido e recebe as condições.": {
+    es: "La empresa de este contacto en la atención B2B — quien firma el pedido y recibe las condiciones.",
+  },
 };
 
 /**

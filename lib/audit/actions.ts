@@ -60,6 +60,11 @@ export const AUDIT_ACTIONS = [
   "contact.anonymized",
   "contact.merge_pending",
   "contact.merged",
+  // Contas B2B (0239, Fase 2 — RevenueOS): a empresa-cliente. Criar e mudar
+  // (inclusive arquivar) é decisão comercial do manager, e a trilha precisa
+  // responder "quem abriu esta conta e quando". Sem DELETE por desenho.
+  "account.created",
+  "account.updated",
   "lgpd.anonymize_executed",
   // A cascata retomando o que uma execução interrompida não terminou (#310).
   "lgpd.anonymize_catchup",
