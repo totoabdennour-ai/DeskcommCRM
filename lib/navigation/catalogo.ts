@@ -238,6 +238,18 @@ export const NAV_CATALOG = [
     section: "Preparar a venda",
   },
   {
+    // Precificação B2B (Fase 3, migration 0240): a lista que SOBREPÕE o preço
+    // do catálogo para as contas dela. A decisão de preço é do RESOLVER
+    // (lib/pricing/) na hora da venda — aqui só se cadastra o insumo, como em
+    // Produtos e Contas. Mesmo regime: SEM `sidebar`.
+    href: "/app/pricing",
+    label: "Preços B2B",
+    description: "Listas de preço por conta — o que sobrepõe o preço do catálogo.",
+    icon: "Tag",
+    group: "crm",
+    section: "Preparar a venda",
+  },
+  {
     // A promessa que o comentário da Agenda fazia desde que ela nasceu. Aqui se
     // decide O QUE se pode marcar, quanto dura e quem atende — e é isto que a
     // tela de marcar e o agente de IA oferecem ao cliente.

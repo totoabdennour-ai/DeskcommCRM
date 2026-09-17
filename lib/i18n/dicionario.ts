@@ -8423,6 +8423,42 @@ export const DICIONARIO: Traducoes = {
   "A empresa deste contato no atendimento B2B — quem assina o pedido e recebe as condições.": {
     es: "La empresa de este contacto en la atención B2B — quien firma el pedido y recibe las condiciones.",
   },
+  // ── Precificação B2B (Fase 3, migration 0240) — tela de listas e vínculo na conta ──
+  "Preços B2B": { es: "Precios B2B" },
+  "Listas de preço por conta. O produto que está na lista usa o preço dela; o que não está, usa o preço do catálogo.": {
+    es: "Listas de precios por cuenta. El producto que está en la lista usa su precio; el que no está, usa el precio del catálogo.",
+  },
+  "Nenhuma lista de preço ainda": { es: "Ninguna lista de precios todavía" },
+  "Crie uma lista, cadastre os preços especiais e escolha-a na conta do cliente. Sem lista, vale o preço do catálogo.": {
+    es: "Crea una lista, registra los precios especiales y escójela en la cuenta del cliente. Sin lista, vale el precio del catálogo.",
+  },
+  "Nova lista de preço": { es: "Nueva lista de precios" },
+  "O nome da lista é obrigatório.": { es: "El nombre de la lista es obligatorio." },
+  "Nome da lista": { es: "Nombre de la lista" },
+  "Ex.: Conta Distribuidora Central — 2026": { es: "Ej.: Cuenta Distribuidora Central — 2026" },
+  "Criar lista": { es: "Crear lista" },
+  "Lista criada": { es: "Lista creada" },
+  "Lista desativada": { es: "Lista desactivada" },
+  "Lista ativada": { es: "Lista activada" },
+  "Preço na lista vence o preço do catálogo. Produto fora da lista usa o catálogo.": {
+    es: "El precio de la lista vence al precio del catálogo. Producto fuera de la lista usa el catálogo.",
+  },
+  "Nenhum preço especial nesta lista — tudo vale o catálogo.": {
+    es: "Ningún precio especial en esta lista — todo vale el catálogo.",
+  },
+  "(produto removido)": { es: "(producto eliminado)" },
+  "Remover da lista": { es: "Quitar de la lista" },
+  "Definir preço de um produto": { es: "Definir precio de un producto" },
+  "Buscar produto por nome ou código": { es: "Buscar producto por nombre o código" },
+  "catálogo": { es: "catálogo" },
+  "Preço gravado na lista": { es: "Precio guardado en la lista" },
+  "Gravar preço": { es: "Guardar precio" },
+  "Produto voltou ao preço do catálogo": { es: "El producto volvió al precio del catálogo" },
+  "Lista de preço": { es: "Lista de precios" },
+  "Preço do catálogo": { es: "Precio del catálogo" },
+  "O preço dos produtos desta conta sai da lista escolhida; o que não estiver nela, sai do catálogo.": {
+    es: "El precio de los productos de esta cuenta sale de la lista elegida; lo que no esté en ella, sale del catálogo.",
+  },
 };
 
 /**

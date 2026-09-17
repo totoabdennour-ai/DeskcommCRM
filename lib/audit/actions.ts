@@ -65,6 +65,13 @@ export const AUDIT_ACTIONS = [
   // responder "quem abriu esta conta e quando". Sem DELETE por desenho.
   "account.created",
   "account.updated",
+  // Precificação B2B (0240, Fase 3 — RevenueOS): preço é dinheiro. Toda
+  // mutação de lista/item entra na trilha — "quem mudou o preço desta conta
+  // e quando" é a primeira pergunta de uma disputa comercial.
+  "price_list.created",
+  "price_list.updated",
+  "price_list_item.set",
+  "price_list_item.removed",
   "lgpd.anonymize_executed",
   // A cascata retomando o que uma execução interrompida não terminou (#310).
   "lgpd.anonymize_catchup",

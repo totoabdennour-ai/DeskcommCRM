@@ -29,6 +29,8 @@ export const contaCreateSchema = z.object({
   external_id: z.string().trim().min(1).max(100).nullish(),
   status: z.enum(CONTAS_STATUS).default("active"),
   owner_user_id: z.string().uuid().nullish(),
+  /** Lista de preço da conta (0240). Nullish = sem lista → preço base. */
+  price_list_id: z.string().uuid().nullish(),
   settings: settingsSchema.optional(),
 });
 export type ContaCreate = z.infer<typeof contaCreateSchema>;
@@ -39,7 +41,7 @@ export type ContaPatch = z.infer<typeof contaPatchSchema>;
 
 /** Colunas do SELECT canônico — a tela e a rota leem exatamente isto. */
 export const COLUNAS_DA_CONTA =
-  "id, organization_id, name, external_id, status, settings, owner_user_id, created_by, created_at, updated_at";
+  "id, organization_id, name, external_id, status, settings, owner_user_id, price_list_id, created_by, created_at, updated_at";
 
 /**
  * A linha como a tela e a API a leem (COLUNAS_DA_CONTA). Explícita de
@@ -55,6 +57,8 @@ export interface Conta {
   status: StatusDaConta;
   settings: Record<string, unknown>;
   owner_user_id: string | null;
+  /** Lista de preço da conta (0240) — null = preço base do catálogo. */
+  price_list_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

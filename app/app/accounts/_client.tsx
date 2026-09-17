@@ -9,6 +9,7 @@ import { useT } from "@/hooks/i18n/useT";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/lib/api/client";
 import { CONTAS_STATUS, type Conta, type StatusDaConta } from "@/lib/schemas/contas";
+import { type ListaDePreco } from "@/lib/schemas/precos";
 
 interface Textos {
   titulo: string;
@@ -50,6 +51,27 @@ export function ContasClient({
   const [busca, setBusca] = React.useState("");
   const [rascunho, setRascunho] = React.useState<Rascunho | null>(null);
   const [salvando, setSalvando] = React.useState(false);
+  // Lista de preço da conta (0240): as listas só entram quando o formulário
+  // abre — e o valor viaja no corpo só quando existe (null = sem lista).
+  const [listas, setListas] = React.useState<{ id: string; nome: string }[]>([]);
+  const [listaSelecionada, setListaSelecionada] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!rascunho) return;
+    let ativo = true;
+    const carregar = async () => {
+      try {
+        const ls = await apiClient.get<ListaDePreco[]>("/api/v1/price-lists");
+        if (ativo) setListas((ls ?? []).filter((l) => l.status === "active"));
+      } catch {
+        if (ativo) setListas([]);
+      }
+    };
+    void carregar();
+    return () => {
+      ativo = false;
+    };
+  }, [rascunho]);
 
   const filtradas = React.useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -60,10 +82,12 @@ export function ContasClient({
   }, [inicial, busca]);
 
   function abrirNova() {
+    setListaSelecionada(null);
     setRascunho({ id: null, name: "", external_id: "", status: "active" });
   }
 
   function abrirEdicao(c: Conta) {
+    setListaSelecionada(c.price_list_id ?? null);
     setRascunho({ id: c.id, name: c.name, external_id: c.external_id ?? "", status: c.status });
   }
 
@@ -79,6 +103,7 @@ export function ContasClient({
         name: rascunho.name.trim(),
         external_id: rascunho.external_id.trim() === "" ? null : rascunho.external_id.trim(),
         status: rascunho.status,
+        price_list_id: listaSelecionada,
       };
       if (rascunho.id === null) {
         await apiClient.post("/api/v1/accounts", corpo);
@@ -167,6 +192,25 @@ export function ContasClient({
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="text-sm">
+              {t("Lista de preço")} <span className="text-muted-foreground">{t("(opcional)")}</span>
+              <select
+                value={listaSelecionada ?? ""}
+                onChange={(e) => setListaSelecionada(e.target.value === "" ? null : e.target.value)}
+                className="mt-1 h-9 w-full rounded-md border px-3"
+                data-testid="conta-lista-preco"
+              >
+                <option value="">{t("Preço do catálogo")}</option>
+                {listas.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nome}
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {t("O preço dos produtos desta conta sai da lista escolhida; o que não estiver nela, sai do catálogo.")}
+              </span>
             </label>
           </div>
 

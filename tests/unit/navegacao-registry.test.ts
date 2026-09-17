@@ -142,13 +142,13 @@ describe("sidebarGroups", () => {
 });
 
 describe("hubSections", () => {
-  it("o hub do CRM é inventário: as seis telas do grupo, nas duas seções", () => {
+  it("o hub do CRM é inventário: as sete telas do grupo, nas duas seções", () => {
     // As seções são a régua do sidebar escrita por extenso — o que se abre todo
     // dia contra o que se define uma vez. Lista EXATA: `toContain` deixaria uma
     // tela nova entrar sem que ninguém decidisse de que lado dela ela cai.
-    // "Contas B2B" (0239, Fase 2) entra na seção "Preparar a venda", logo
-    // após Produtos: as duas são insumo de CADASTRO da venda, na ordem em que
-    // o piloto B2B as preenche — catálogo primeiro, empresa-cliente depois.
+    // "Contas B2B" (0239) e "Preços B2B" (0240) entram na seção "Preparar a
+    // venda" após Produtos: as três são insumo de CADASTRO da venda, na ordem
+    // em que o piloto B2B as preenche — catálogo, empresa-cliente, preço.
     const secoes = hubSections("crm", true, null);
     expect(secoes.map((s) => s.section)).toEqual(["O dia a dia da venda", "Preparar a venda"]);
     expect(secoes.flatMap((s) => s.items.map((i) => i.href))).toEqual([
@@ -157,6 +157,7 @@ describe("hubSections", () => {
       "/app/tasks",
       "/app/products",
       "/app/accounts",
+      "/app/pricing",
       "/app/settings/tenant/pipelines",
     ]);
   });

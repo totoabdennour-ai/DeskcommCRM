@@ -43,6 +43,23 @@ export async function PATCH(
 
   const supabase = await createClient();
 
+  // Lista de preço (0240): tem de ser DA ORGANIZAÇÃO (gatilho do banco é a
+  // autoridade; aqui o operador recebe 422 legível). `null` desvincula — a
+  // conta volta ao preço base do catálogo.
+  if (parsed.data.price_list_id) {
+    const { data: lista } = await supabase
+      .from("price_lists")
+      .select("id")
+      .eq("id", parsed.data.price_list_id)
+      .eq("organization_id", authz.org.orgId)
+      .maybeSingle();
+    if (!lista) {
+      return fail("validation_failed", t("Lista de preço não encontrada nesta organização."), 422, {
+        requestId,
+      });
+    }
+  }
+
   const { data, error } = await supabase
     .from("accounts")
     .update(parsed.data)

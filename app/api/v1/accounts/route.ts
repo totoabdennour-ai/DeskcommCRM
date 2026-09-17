@@ -73,12 +73,29 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const supabase = await createClient();
 
+  // Lista de preço (0240): tem de ser DA ORGANIZAÇÃO. O gatilho do banco é a
+  // autoridade; aqui o operador recebe 422 legível em vez de 500.
+  if (parsed.data.price_list_id) {
+    const { data: lista } = await supabase
+      .from("price_lists")
+      .select("id")
+      .eq("id", parsed.data.price_list_id)
+      .eq("organization_id", authz.org.orgId)
+      .maybeSingle();
+    if (!lista) {
+      return fail("validation_failed", t("Lista de preço não encontrada nesta organização."), 422, {
+        requestId,
+      });
+    }
+  }
+
   const linha = {
     organization_id: authz.org.orgId,
     name: parsed.data.name,
     external_id: parsed.data.external_id ?? null,
     status: parsed.data.status,
     owner_user_id: parsed.data.owner_user_id ?? null,
+    price_list_id: parsed.data.price_list_id ?? null,
     settings: parsed.data.settings ?? {},
     created_by: authz.user.id,
   };
