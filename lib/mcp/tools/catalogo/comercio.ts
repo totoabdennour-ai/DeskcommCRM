@@ -52,6 +52,26 @@ export const TOOLS_COMERCIO = declararTools([
     pacotes: ["pedidos"],
   },
   {
+    name: "crm_get_order_context",
+    category: "read",
+    rotulo: "Ver a conta e o rascunho do cliente",
+    explicacao:
+      "Diz a qual empresa o contato pertence, qual a lista de preço dela e se já existe rascunho de pedido aberto — para o assistente continuar um pedido em vez de criar outro.",
+    oQueToca: "Pedidos B2B (contexto)",
+    risco: "seguro",
+    pacotes: ["pedidos"],
+  },
+  {
+    name: "crm_update_order_draft",
+    category: "write",
+    rotulo: "Atualizar rascunho de pedido B2B",
+    explicacao:
+      "Muda as linhas de um rascunho de pedido já aberto (só rascunho — confirmado nunca se edita por aqui). O preço de cada linha é resolvido de novo pelo sistema; se uma linha ficar sem preço, ele explica o motivo e escala se for o caso.",
+    oQueToca: "Pedidos B2B (rascunho)",
+    risco: "atencao",
+    pacotes: ["pedidos"],
+  },
+  {
     name: "crm_list_privacy_requests",
     category: "read",
     rotulo: "Ver pedidos de privacidade",

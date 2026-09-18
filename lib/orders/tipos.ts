@@ -77,3 +77,25 @@ export function numeroExternoNativo(agora: Date, uuid: string): string {
   const ano = agora.getUTCFullYear();
   return `PED-${ano}-${uuid.replace(/-/g, "").slice(0, 12)}`;
 }
+
+/**
+ * GATILHO DETERMINÍSTICO DE ESCALAÇÃO (doc 25 B1 / Fase 5 — "handoff quando
+ * exigido"): classifica a recusa de um pedido rascunho em recuperável na
+ * conversa ou digno de humano.
+ *
+ *  - `conta_inexistente`  → ESCALA: problema de IDENTIDADE (o vínculo
+ *    contato↔conta não existe ou a conta sumiu) — nenhuma frase do agente
+ *    conserta; resolve gente (0239) ou operador.
+ *  - `moeda_mista`        → ESCALA: exceção de PRECIFICAÇÃO (linhas em moedas
+ *    diferentes) — política comercial, não conversa.
+ *  - `produto_inexistente`/`produto_inativo` → NÃO escala: o agente diz que
+ *    não tem/oferta alternativa via `crm_search_products` (com o aviso de
+ *    empate/relaxamento) e segue a conversa.
+ *
+ * A IA lê o flag; ela NÃO decide quando escala — o flag é determinístico e
+ * testado aqui. Quem EXECUTA a transferência continua sendo o caminho nativo
+ * `request_human_handoff` (BLOCKED_TOOL_IDS garante isso).
+ */
+export function classificarRecusaDePedido(motivo: string): { escalar_para_humano: boolean } {
+  return { escalar_para_humano: motivo === "conta_inexistente" || motivo === "moeda_mista" };
+}

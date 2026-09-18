@@ -13,7 +13,8 @@ import { z } from "zod";
 
 import type { McpToolDefinition } from "../types";
 import { buscarComRelaxamento } from "@/lib/catalogo/busca";
-import { criarRascunho } from "@/lib/orders/engine";
+import { criarRascunho, editarRascunho } from "@/lib/orders/engine";
+import { classificarRecusaDePedido } from "@/lib/orders/tipos";
 import { formatCents } from "@/lib/money";
 
 // ---------------------------------------------------------------------------
@@ -337,13 +338,19 @@ export const crmCreateOrder: McpToolDefinition<typeof criarPedidoInputShape> = {
     if (!r.ok) {
       // Recusa modelada (não throw): o modelo PRECISA ler o motivo para
       // explicar ao cliente — e a proibição de inventar preço é explícita.
+      const escalacao = classificarRecusaDePedido(r.motivo);
       return {
         pedido_criado: false,
         motivo: r.motivo,
         ...(r.produto ? { produto: r.produto } : {}),
-        instrucao:
-          "NÃO invente preço nem substitua produto por conta própria. Explique o motivo ao cliente; " +
-          "substituição de produto só com o acordo explícito dele.",
+        ...escalacao,
+        ...(escalacao.escalar_para_humano
+          ? { instrucao: "Escale para um humano — este motivo não se resolve na conversa." }
+          : {
+              instrucao:
+                "NÃO invente preço nem substitua produto por conta própria. Explique o motivo ao cliente; " +
+                "substituição de produto só com o acordo explícito dele.",
+            }),
       };
     }
     return {
@@ -399,6 +406,175 @@ export const crmGetOrder: McpToolDefinition<typeof verPedidoInputShape> = {
         ...(pedido.is_anonymized ? { aviso: "pedido anonimizado a pedido do titular" } : {}),
       },
       itens: itens ?? [],
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// contexto de pedido da conta (Fase 5) — quem é a conta e onde está o rascunho
+// ---------------------------------------------------------------------------
+
+const contextoPedidoInputShape = {
+  contact_id: z
+    .string()
+    .uuid()
+    .describe("O contato da conversa — é dele que se resolve a conta (0239)."),
+};
+
+export const crmGetOrderContext: McpToolDefinition<typeof contextoPedidoInputShape> = {
+  name: "crm_get_order_context",
+  description:
+    "Resolve o CONTEXTO DE PEDIDO de um contato: a conta B2B a que ele pertence, a lista de preço " +
+    "dela, e se existe rascunho de pedido aberto (com total e linhas). Chame ANTES de montar ou " +
+    "continuar um pedido — o rascunho existente é quem você atualiza, e a conta é quem você informa. " +
+    "Se não houver conta, pergunte ao cliente a empresa dele ou escale — não invente conta.",
+  inputSchema: contextoPedidoInputShape,
+  category: "read",
+  requiresRole: "agent",
+  requiresScope: "mcp:read",
+  handler: async (input, ctx) => {
+    const { data: contato } = await ctx.supabase
+      .from("contacts")
+      .select("id, account_id, display_name")
+      .eq("organization_id", ctx.organizationId)
+      .eq("id", input.contact_id)
+      .maybeSingle();
+    if (!contato) return { encontrado: false, motivo: "contato_inexistente" };
+
+    const accountId = (contato as { account_id: string | null }).account_id;
+    if (!accountId) {
+      return {
+        encontrado: true,
+        conta: null,
+        instrucao:
+          "Este contato não pertence a conta nenhuma. Pergunte à qual empresa ele pertence e " +
+          "escale para um humano vincular (ou use a tela de contas) — NÃO invente conta.",
+      };
+    }
+
+    const { data: conta } = await ctx.supabase
+      .from("accounts")
+      .select("id, name, status, price_list_id, settings")
+      .eq("organization_id", ctx.organizationId)
+      .eq("id", accountId)
+      .maybeSingle();
+
+    const { data: rascunho } = await ctx.supabase
+      .from("orders")
+      .select("id, external_id, status, total_cents, currency")
+      .eq("organization_id", ctx.organizationId)
+      .eq("account_id", accountId)
+      .eq("status", "draft")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let rascunhoLinhas: Array<{ sku: string; nome: string; quantity: number; unit_price_cents: number; moeda: string }> = [];
+    if (rascunho) {
+      const { data: linhas } = await ctx.supabase
+        .from("order_items")
+        .select("sku, nome, quantity, unit_price_cents, moeda")
+        .eq("organization_id", ctx.organizationId)
+        .eq("order_id", (rascunho as { id: string }).id)
+        .order("created_at");
+      rascunhoLinhas = linhas ?? [];
+    }
+
+    return {
+      encontrado: true,
+      conta: conta ?? null,
+      rascunho: rascunho
+        ? { ...(rascunho as Record<string, unknown>), linhas: rascunhoLinhas }
+        : null,
+      instrucao: rascunho
+        ? "Já existe rascunho aberto — atualize-o (crm_update_order_draft) em vez de criar outro."
+        : "Sem rascunho aberto — monte as linhas com crm_search_products e crie com crm_create_order.",
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// editar rascunho (Fase 5) — só DRAFT; confirmado é imutável por esta via
+// ---------------------------------------------------------------------------
+
+const editarRascunhoInputShape = {
+  order_id: z.string().uuid().describe("O rascunho aberto (crm_get_order_context devolve)."),
+  items: z
+    .array(
+      z.object({
+        product_id: z.string().uuid().describe("O produto do catálogo (crm_search_products)."),
+        quantity: z.number().int().min(1).max(100_000).describe("A quantidade — em unidades."),
+      }),
+    )
+    .min(1)
+    .max(50)
+    .describe("As linhas COMPLETAS do rascunho depois da mudança (substitui todas)."),
+};
+
+export const crmUpdateOrderDraft: McpToolDefinition<typeof editarRascunhoInputShape> = {
+  name: "crm_update_order_draft",
+  description:
+    "Atualiza as linhas de um RASCUNHO de pedido (só rascunho — pedido confirmado nunca se edita por aqui). " +
+    "O preço de cada linha é resolvido de novo pelo sistema; envie as linhas COMPLETAS. Se uma linha " +
+    "ficar sem preço, a atualização é recusada com o motivo — reporte ao cliente, não invente preço.",
+  inputSchema: editarRascunhoInputShape,
+  category: "write",
+  requiresRole: "ai_operator",
+  requiresScope: "mcp:write",
+  handler: async (input, ctx) => {
+    // O rascunho tem de ser DA ORG, ser draft e ter conta (o preço resolve por conta).
+    const { data: pedido } = await ctx.supabase
+      .from("orders")
+      .select("id, status, account_id")
+      .eq("organization_id", ctx.organizationId)
+      .eq("id", input.order_id)
+      .maybeSingle();
+    if (!pedido) {
+      return { pedido_atualizado: false, motivo: "pedido_inexistente" };
+    }
+    const linha = pedido as { status: string; account_id: string | null };
+    if (linha.status !== "draft") {
+      return {
+        pedido_atualizado: false,
+        motivo: "nao_e_rascunho",
+        instrucao:
+          "Pedido confirmado não se edita: explique ao cliente e escale para o time alterar. " +
+          "NÃO prometa alteração de pedido confirmado.",
+      };
+    }
+    if (!linha.account_id) {
+      return { pedido_atualizado: false, motivo: "conta_inexistente", escalar_para_humano: true };
+    }
+
+    const r = await editarRascunho(ctx.supabase, {
+      organizationId: ctx.organizationId,
+      orderId: input.order_id,
+      accountId: linha.account_id,
+      linhas: input.items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
+      actorUserId: ctx.actor.type === "user" ? ctx.actor.id : null,
+      actorKind: ctx.actor.type === "user" ? "user" : "ai",
+    });
+    if (!r.ok) {
+      const escalacao = classificarRecusaDePedido(r.motivo);
+      return {
+        pedido_atualizado: false,
+        motivo: r.motivo,
+        ...(r.produto ? { produto: r.produto } : {}),
+        ...escalacao,
+        ...(escalacao.escalar_para_humano
+          ? { instrucao: "Escale para um humano — este motivo não se resolve na conversa." }
+          : {
+              instrucao:
+                "NÃO invente preço nem substitua produto por conta própria. Explique o motivo ao cliente.",
+            }),
+      };
+    }
+    return {
+      pedido_atualizado: true,
+      order_id: input.order_id,
+      status: "draft",
+      total_cents: r.total_cents,
+      instrucao: "Rascunho atualizado — a confirmação continua sendo do time da loja.",
     };
   },
 };

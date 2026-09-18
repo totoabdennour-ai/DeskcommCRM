@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  classificarRecusaDePedido,
   KINDS_DO_PEDIDO,
   numeroExternoNativo,
   totalDasLinhas,
@@ -62,5 +63,18 @@ describe("numeroExternoNativo — B2: legível, sem corrida", () => {
 describe("vocabulário", () => {
   it("kinds batem com o CHECK da 0241", () => {
     expect(KINDS_DO_PEDIDO).toEqual(["created", "edited", "confirmed", "cancelled"]);
+  });
+});
+
+describe("classificarRecusaDePedido — o gatilho determinístico de escalação (Fase 5)", () => {
+  it("conta_inexistente e moeda_mista ESCALAM (identidade/preço não se resolvem na conversa)", () => {
+    expect(classificarRecusaDePedido("conta_inexistente").escalar_para_humano).toBe(true);
+    expect(classificarRecusaDePedido("moeda_mista").escalar_para_humano).toBe(true);
+  });
+
+  it("produto inexistente/inativo e fora da lista NÃO escalam — o agente explica e segue", () => {
+    expect(classificarRecusaDePedido("produto_inexistente").escalar_para_humano).toBe(false);
+    expect(classificarRecusaDePedido("produto_inativo").escalar_para_humano).toBe(false);
+    expect(classificarRecusaDePedido("produto_fora_da_lista").escalar_para_humano).toBe(false);
   });
 });

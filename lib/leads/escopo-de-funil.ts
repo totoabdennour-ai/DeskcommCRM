@@ -122,6 +122,10 @@ export const ALVO_DE_FUNIL: Record<string, AlvoDeFunil> = {
   // humana pela rota (B1). Declarar `sem_funil` é o uso correto do valor: o
   // pedido B2B opera fora do card, e fingir o contrário seria teatro.
   crm_create_order: "sem_funil",
+  // Mesma natureza do criar (pedido é da CONTA, não do card); e a edição opera
+  // por order_id com substituição completa de linhas — o preço re-resolve no
+  // engine, a confirmação continua humana.
+  crm_update_order_draft: "sem_funil",
   crm_resume_ai_attendance: "sem_funil",
   crm_save_org_memory: "sem_funil",
   crm_propose_contact_field: "sem_funil",
