@@ -115,6 +115,13 @@ export const ALVO_DE_FUNIL: Record<string, AlvoDeFunil> = {
   crm_add_case_note: "sem_funil",
   crm_close_human_case: "sem_funil",
   crm_assign_conversation: "sem_funil",
+  // Order Engine (0241, Fase 4): o pedido é da CONTA (account_id OBRIGATÓRIO no
+  // CHECK `orders_native_tem_conta`), não do card do funil — a quem ele pertence
+  // é decidido pelo vínculo contato↔conta (0239), não por `lead_id`. Quem limita
+  // a escrita é o RBAC (ai_operator na tool) + o resolver (preço) + a confirmação
+  // humana pela rota (B1). Declarar `sem_funil` é o uso correto do valor: o
+  // pedido B2B opera fora do card, e fingir o contrário seria teatro.
+  crm_create_order: "sem_funil",
   crm_resume_ai_attendance: "sem_funil",
   crm_save_org_memory: "sem_funil",
   crm_propose_contact_field: "sem_funil",

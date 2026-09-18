@@ -70,10 +70,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   const linha = {
     organization_id: authz.org.orgId,
     nome: parsed.data.nome,
-    // A moeda NÃO vem do corpo (nunca decide unidade — CLAUDE.md): default é a
-    // que a organização declarou, o mesmo caminho do catálogo. Explícita no
-    // insert porque o schema nem declara o campo — Zod descarta.
-    moeda: parsed.data.moeda ?? (await moedaDaOrganizacao(supabase, authz.org.orgId)),
+    // A moeda NÃO vem do corpo (nunca decide unidade — CLAUDE.md): é a que
+    // a organização declarou, o mesmo caminho do catálogo. O schema nem
+    // declara o campo — Zod descarta qualquer moeda que venha.
+    moeda: await moedaDaOrganizacao(supabase, authz.org.orgId),
     status: parsed.data.status,
     created_by: authz.user.id,
   };

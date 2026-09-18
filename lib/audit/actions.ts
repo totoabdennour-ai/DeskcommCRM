@@ -72,6 +72,12 @@ export const AUDIT_ACTIONS = [
   "price_list.updated",
   "price_list_item.set",
   "price_list_item.removed",
+  // Order Engine (0241, Fase 4 — RevenueOS): o pedido é o objeto de dinheiro.
+  // Confirmação e cancelamento são as decisões que movem receita de verdade.
+  "order.created",
+  "order.updated",
+  "order.confirmed",
+  "order.cancelled",
   "lgpd.anonymize_executed",
   // A cascata retomando o que uma execução interrompida não terminou (#310).
   "lgpd.anonymize_catchup",

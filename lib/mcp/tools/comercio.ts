@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import type { McpToolDefinition } from "../types";
 import { buscarComRelaxamento } from "@/lib/catalogo/busca";
+import { criarRascunho } from "@/lib/orders/engine";
 import { formatCents } from "@/lib/money";
 
 // ---------------------------------------------------------------------------
@@ -283,6 +284,121 @@ export const crmSearchProducts: McpToolDefinition<typeof produtosInputShape> = {
       // número que sumiu importava.
       ...(ignorados.length > 0 ? { numeros_ignorados: ignorados } : {}),
       ...(mensagem ? { mensagem } : {}),
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Order Engine (0241, Fase 4) — o agente monta o RASCUNHO; confirma quem tem
+// papel de manager pela rota (doc 25 B1: gate humano por default). O agente
+// manda produto + quantidade APENAS: preço é do resolver, nunca do modelo.
+// ---------------------------------------------------------------------------
+
+const criarPedidoInputShape = {
+  account_id: z
+    .string()
+    .uuid()
+    .describe("A conta B2B do cliente — o pedido é da CONTA (0239). Sem conta, pergunte ao cliente."),
+  items: z
+    .array(
+      z.object({
+        product_id: z.string().uuid().describe("O produto do catálogo (crm_search_products)."),
+        quantity: z.number().int().min(1).max(100_000).describe("A quantidade — em unidades."),
+      }),
+    )
+    .min(1)
+    .max(50)
+    .describe("As linhas do pedido. Repetiu o mesmo produto? O resolver trata como linhas separadas."),
+};
+
+export const crmCreateOrder: McpToolDefinition<typeof criarPedidoInputShape> = {
+  name: "crm_create_order",
+  description:
+    "Cria o RASCUNHO de um pedido B2B para uma conta, com o preço resolvido pelo sistema para cada linha " +
+    "(lista de preço da conta vence o catálogo). O rascunho NÃO é pedido confirmado: um humano com papel de " +
+    "manager confirma pela rota depois. Se uma linha não tiver preço, o pedido inteiro é recusado com o motivo — " +
+    "reporte o motivo ao cliente, não invente preço nem alternativa.",
+  inputSchema: criarPedidoInputShape,
+  category: "write",
+  // Escrita de DINHEIRO exige ai_operator (gate `capacidade-alcancavel`): o
+  // agente de atendimento raso não monta pedido — quem monta é agente B2B de
+  // verdade, publicado com esta capacidade de forma explícita.
+  requiresRole: "ai_operator",
+  requiresScope: "mcp:write",
+  handler: async (input, ctx) => {
+    const r = await criarRascunho(ctx.supabase, {
+      organizationId: ctx.organizationId,
+      accountId: input.account_id,
+      linhas: input.items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
+      actorUserId: ctx.actor.type === "user" ? ctx.actor.id : null,
+      actorKind: ctx.actor.type === "user" ? "user" : "ai",
+      externalId: null,
+    });
+    if (!r.ok) {
+      // Recusa modelada (não throw): o modelo PRECISA ler o motivo para
+      // explicar ao cliente — e a proibição de inventar preço é explícita.
+      return {
+        pedido_criado: false,
+        motivo: r.motivo,
+        ...(r.produto ? { produto: r.produto } : {}),
+        instrucao:
+          "NÃO invente preço nem substitua produto por conta própria. Explique o motivo ao cliente; " +
+          "substituição de produto só com o acordo explícito dele.",
+      };
+    }
+    return {
+      pedido_criado: true,
+      order_id: r.pedido.order_id,
+      external_id: r.pedido.external_id,
+      status: r.pedido.status,
+      total_cents: r.pedido.total_cents,
+      instrucao:
+        "Rascunho criado — não é pedido confirmado. Diga ao cliente o total e que a confirmação " +
+        "final é feita pelo time da loja.",
+    };
+  },
+};
+
+const verPedidoInputShape = {
+  order_id: z.string().uuid().describe("O pedido a inspecionar."),
+};
+
+export const crmGetOrder: McpToolDefinition<typeof verPedidoInputShape> = {
+  name: "crm_get_order",
+  description:
+    "Mostra um pedido: estado (rascunho/confirmado/cancelado), total, e as linhas com o preço " +
+    "congelado de cada uma. Use para conferir o que já existe antes de prometer mudança — " +
+    "pedido confirmado não se edita por esta via.",
+  inputSchema: verPedidoInputShape,
+  category: "read",
+  requiresRole: "agent",
+  requiresScope: "mcp:read",
+  handler: async (input, ctx) => {
+    const { data: pedido, error } = await ctx.supabase
+      .from("orders")
+      .select(
+        "id, external_id, external_provider, origin, account_id, contact_id, status, total_cents, currency, ordered_at, is_anonymized",
+      )
+      .eq("organization_id", ctx.organizationId)
+      .eq("id", input.order_id)
+      .maybeSingle();
+    if (error) throw new Error(`ver_pedido_falhou: ${error.message}`);
+    if (!pedido) return { encontrado: false };
+
+    const { data: itens } = await ctx.supabase
+      .from("order_items")
+      .select("sku, nome, quantity, unit_price_cents, moeda, fonte")
+      .eq("organization_id", ctx.organizationId)
+      .eq("order_id", input.order_id)
+      .order("created_at");
+
+    return {
+      encontrado: true,
+      pedido: {
+        ...pedido,
+        ...(pedido.is_anonymized ? { aviso: "pedido anonimizado a pedido do titular" } : {}),
+      },
+      itens: itens ?? [],
     };
   },
 };

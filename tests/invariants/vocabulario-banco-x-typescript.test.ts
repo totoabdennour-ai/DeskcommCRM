@@ -288,6 +288,15 @@ const PARES: Array<{
     arquivo: "lib/schemas/precos.ts",
     simbolo: "StatusDaLista",
   },
+  {
+    tabela: "order_events",
+    coluna: "kind",
+    // lib/orders/tipos.ts → KindDoPedido (tupla `as const`). Migration 0241
+    // (Order Engine, Fase 4): o CHECK do log de domínio e o tipo TS nascem
+    // juntos — par no mesmo commit.
+    arquivo: "lib/orders/tipos.ts",
+    simbolo: "KindDoPedido",
+  },
 ];
 
 /** Tira um nível de parênteses externos, se ele envolver a expressão inteira. */

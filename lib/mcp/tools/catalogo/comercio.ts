@@ -28,6 +28,30 @@ export const TOOLS_COMERCIO = declararTools([
     pacotes: ["vender", "atender"],
   },
   {
+    name: "crm_create_order",
+    category: "write",
+    rotulo: "Montar rascunho de pedido B2B",
+    explicacao:
+      "Monta o RASCUNHO de um pedido para a conta do cliente, com o preço resolvido pelo sistema para cada linha (lista de preço da conta vence o catálogo). Rascunho não é pedido fechado: um humano com papel de manager confirma. O assistente não inventa preço — se uma linha não tiver preço, ele explica o motivo.",
+    oQueToca: "Pedidos B2B (rascunho)",
+    risco: "atencao",
+    // Pacote de jornada PRÓPRIO ("pedidos"): tool de dinheiro não entra por
+    // default no agente de atendimento — o operador liga o pacote B2B quando
+    // quer, e o gate de capacidade (pacote-reserva-vaga) segue honesto: o
+    // pacote exige só 2 vagas novas depois do onboarding.
+    pacotes: ["pedidos"],
+  },
+  {
+    name: "crm_get_order",
+    category: "read",
+    rotulo: "Ver um pedido B2B",
+    explicacao:
+      "Mostra o estado de um pedido (rascunho, confirmado, cancelado), o total e o preço congelado de cada linha, para o assistente conferir o que já existe antes de prometer mudança.",
+    oQueToca: "Pedidos B2B (consulta)",
+    risco: "seguro",
+    pacotes: ["pedidos"],
+  },
+  {
     name: "crm_list_privacy_requests",
     category: "read",
     rotulo: "Ver pedidos de privacidade",

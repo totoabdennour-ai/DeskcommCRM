@@ -234,6 +234,28 @@ beforeAll(() => {
         where organization_id = v_org and account_id is null
           and display_name = 'RLS Invariant Contact';
 
+        -- orders/order_items/order_events (migration 0241, Fase 4): o pedido
+        -- nativo é DINHEIRO. Vazar o cabeçalho é entregar quem compra e quanto;
+        -- vazar a LINHA entrega o preço congelado por produto; vazar o evento
+        -- entrega a história comercial. O seed passa pelo RPC (o caminho real
+        -- do engine) para exercitar o outbox no próprio seed.
+        if not exists (select 1 from public.orders where organization_id = v_org) then
+          perform public.fn_criar_pedido(
+            v_org,
+            (select id from public.accounts where organization_id = v_org limit 1),
+            'RLS-' || v_org::text,
+            'BRL',
+            jsonb_build_array(jsonb_build_object(
+              'product_id', (select id from public.catalog_products where organization_id = v_org limit 1),
+              'sku', 'RLS-ORDER', 'nome', 'Pedido de invariante', 'quantity', 1,
+              'unit_price_cents', 100, 'moeda', 'BRL', 'fonte', 'catalog_base',
+              'price_list_id', null, 'price_list_item_id', null, 'resolvido_em', null
+            )),
+            null,
+            'system'
+          );
+        end if;
+
         -- crm_tasks (migration 0210): o que o time combinou fazer, com prazo.
         -- Entra COM o vínculo de lead porque a tarefa presa a um negócio é o
         -- caso que cruza duas tabelas tenant-aware — se a policy vazasse, o
@@ -327,6 +349,15 @@ export const TABLES = [
   // Leitura org-flat; a ESCRITA de manager é do molde catalog_products e o
   // vínculo same-org do contato é medido em `tests/invariants/contas-vinculo.test.ts`.
   "accounts",
+  // migration 0241 — o Order Engine. orders é o cabeçalho do DINHEIRO
+  // (external_id, total, conta); order_items é o preço CONGELADO por linha;
+  // order_events é a história comercial. Leitura org-flat; a ESCRITA nasce
+  // só dentro das RPCs do engine (security definer) — nenhuma policy de
+  // escrita para authenticated. Invariantes de comportamento:
+  // `tests/invariants/orders-vinculo.test.ts`.
+  "orders",
+  "order_items",
+  "order_events",
   // migration 0210 — as tarefas do CRM. A leitura é org-scoped sem gate de papel
   // (o `viewer` precisa ver o que o time combinou); a ESCRITA exige `agent`, e
   // esse segundo eixo NÃO é medido aqui — o usuário semeado é `agent`, então o
