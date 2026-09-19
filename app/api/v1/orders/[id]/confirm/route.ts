@@ -19,6 +19,8 @@ import { fail, ok } from "@/lib/api/wrappers";
 import { requireRole } from "@/lib/auth/require-role";
 import { confirmar } from "@/lib/orders/engine";
 import { pedidoCreateSchema } from "@/lib/orders/tipos";
+import { atribuirReceita } from "@/lib/receita/ativacao";
+import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { traduzir } from "@/lib/i18n/dicionario";
 
@@ -90,6 +92,22 @@ export async function POST(req: NextRequest, ctx: Ctx): Promise<Response> {
       requestId,
       metadata: { total_cents: r.total_cents },
     });
+
+    // F6: atribuição conservadora de receita (DIRECT + RECOVERED + INFLUENCED)
+    // — idempotente na RPC; falha de atribuição NÃO desfaz a confirmação
+    // (o pedido já é fato), apenas loga.
+    try {
+      const atribuicao = await atribuirReceita(supabase, {
+        organizationId: authz.org.orgId,
+        orderId: id,
+      });
+      logger.info("[orders.confirm] atribuição de receita", { orderId: id, ...atribuicao });
+    } catch (eAtribuicao) {
+      logger.error("[orders.confirm] atribuição de receita falhou (pedido segue confirmado)", {
+        orderId: id,
+        error: eAtribuicao instanceof Error ? eAtribuicao.message : String(eAtribuicao),
+      });
+    }
 
     return ok({ order_id: id, status: "confirmed", total_cents: r.total_cents }, { requestId });
   } catch (e) {

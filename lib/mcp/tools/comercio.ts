@@ -338,6 +338,27 @@ export const crmCreateOrder: McpToolDefinition<typeof criarPedidoInputShape> = {
     if (!r.ok) {
       // Recusa modelada (não throw): o modelo PRECISA ler o motivo para
       // explicar ao cliente — e a proibição de inventar preço é explícita.
+      // F6: recusas de PRODUTO viram revenue_at_risk (valor null — o preço é
+      // justamente o que não existe; dedup por produto aberto).
+      if (r.motivo === "produto_inativo" || r.motivo === "produto_inexistente") {
+        await ctx.supabase.rpc("fn_materializar_risco_unico", {
+          p_org: ctx.organizationId,
+          p_type: "no_price",
+          p_source_kind: "product",
+          p_source_id: input.items[0]?.product_id ?? crypto.randomUUID(),
+          p_account: input.account_id,
+          p_contact: null,
+          p_lead: null,
+          p_order: null,
+          p_trigger: r.motivo,
+          p_value: null,
+          p_moeda: null,
+          p_owner: null,
+          p_deadline: null,
+          p_nba: "clarify_product",
+          p_reason: "Linha sem preço resolvido — esclarecer o produto com o cliente.",
+        });
+      }
       const escalacao = classificarRecusaDePedido(r.motivo);
       return {
         pedido_criado: false,
