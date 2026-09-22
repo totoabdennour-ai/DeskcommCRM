@@ -103,19 +103,21 @@ describe("sidebarGroups", () => {
     expect(hub).toContain("/app/settings/tenant/pipelines");
   });
 
-  it("o CRM tem hub, e o sidebar dele fica só com o uso diário", () => {
+  it("o CRM tem hub, e o sidebar dele fica com o uso diário + a fila de receita", () => {
     // A decisão que devolveu a dobra em 900px (e2e `navegacao.spec.ts`): quando
     // Tarefas virou o quinto destino de CRM, o menu passou a rolar por 13px.
     // O conserto foi o hub — o desenho que o grupo IA já usava —, não mais
     // densidade raspada do `Sidebar.tsx`.
     //
-    // A lista é EXATA de propósito. `toContain` deixaria um sexto item entrar
-    // calado no sidebar e reabrir a mesma corrida por pixel.
+    // A lista é EXATA de propósito. Um item novo entra CONSCIENTEMENTE:
+    // "Operação de Receita" (Fase 7) é a fila que se abre TODA manhã no
+    // piloto B2B — uso diário legítimo, como Tarefas.
     const crm = sidebarGroups(true, null).find((g) => g.group.id === "crm");
     expect(crm?.items.map((i) => i.href)).toEqual([
       "/app/kanban",
       "/app/contacts",
       "/app/tasks",
+      "/app/receita",
     ]);
     expect(NAV_GROUPS.find((g) => g.id === "crm")?.hub?.href).toBe("/app/crm");
   });
@@ -142,19 +144,22 @@ describe("sidebarGroups", () => {
 });
 
 describe("hubSections", () => {
-  it("o hub do CRM é inventário: as sete telas do grupo, nas duas seções", () => {
+  it("o hub do CRM é inventário: as oito telas do grupo, nas duas seções", () => {
     // As seções são a régua do sidebar escrita por extenso — o que se abre todo
     // dia contra o que se define uma vez. Lista EXATA: `toContain` deixaria uma
     // tela nova entrar sem que ninguém decidisse de que lado dela ela cai.
     // "Contas B2B" (0239) e "Preços B2B" (0240) entram na seção "Preparar a
     // venda" após Produtos: as três são insumo de CADASTRO da venda, na ordem
     // em que o piloto B2B as preenche — catálogo, empresa-cliente, preço.
+    // "Operação de Receita" (Fase 7) entra em "O dia a dia da venda" com
+    // sidebar: é a fila que se abre TODA manhã, não insumo de cadastro.
     const secoes = hubSections("crm", true, null);
     expect(secoes.map((s) => s.section)).toEqual(["O dia a dia da venda", "Preparar a venda"]);
     expect(secoes.flatMap((s) => s.items.map((i) => i.href))).toEqual([
       "/app/kanban",
       "/app/contacts",
       "/app/tasks",
+      "/app/receita",
       "/app/products",
       "/app/accounts",
       "/app/pricing",

@@ -75,8 +75,12 @@ export function nbaDoTipo(riskType: string): { action: AcaoNBA; reason: string }
  * Ordena riscos abertos por prioridade EXPLICÁVEL:
  * severidade do tipo → deadline mais próxima → maior valor.
  * Os três critérios saem nos `reason` — nada de score escondido.
+ * Genérica: o chamador pode carregar campos extras (source_id, order_id…) —
+ * eles atravessam a ordenação intactos.
  */
-export function priorizar(riscos: RiscoParaNBA[]): Array<RiscoParaNBA & { nba: NbaSelecionada }> {
+export function priorizar<T extends RiscoParaNBA>(
+  riscos: T[],
+): Array<T & { nba: NbaSelecionada }> {
   return riscos
     .map((r) => {
       const base = ACAO_POR_TIPO[r.risk_type];

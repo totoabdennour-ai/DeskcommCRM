@@ -196,6 +196,19 @@ export const NAV_CATALOG = [
     sidebar: true,
   },
   {
+    // Operação de Receita (Fase 7): a FILA DO DIA — riscos de receita
+    // priorizados pela NBA determinística, na ordem que o sistema calcula.
+    // É a tela que se abre TODA manhã: por isso sidebar true (exceção entre
+    // as telas RevenueOS, que são insumo de cadastro).
+    href: "/app/receita",
+    label: "Operação de Receita",
+    description: "A fila do dia: receita em risco, prioridade e próxima ação.",
+    icon: "ChartLineUp",
+    group: "crm",
+    section: "O dia a dia da venda",
+    sidebar: true,
+  },
+  {
     // ⚠️ Esta tela nasceu porque a FERRAMENTA já existia sem ela. O agente de IA
     // vinha com "procurar produto na loja" ligada por padrão, lendo uma tabela
     // que ninguém nunca preencheu — e o efeito não era silêncio: era o agente

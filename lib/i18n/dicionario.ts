@@ -8459,6 +8459,53 @@ export const DICIONARIO: Traducoes = {
   "O preço dos produtos desta conta sai da lista escolhida; o que não estiver nela, sai do catálogo.": {
     es: "El precio de los productos de esta cuenta sale de la lista elegida; lo que no esté en ella, sale del catálogo.",
   },
+
+  // ── Operação de Receita + Account 360 (Fase 7) ──
+  "Operação de Receita": { es: "Operación de Ingresos" },
+  "A fila do dia: receita em risco, prioridade e próxima ação.": {
+    es: "La fila del día: ingresos en riesgo, prioridad y próxima acción.",
+  },
+  "Fila do operador — prioridade do sistema": { es: "Fila del operador — prioridad del sistema" },
+  "Dados de receita indisponíveis agora.": { es: "Datos de ingresos no disponibles ahora." },
+  "Tente de novo em instantes.": { es: "Inténtalo de nuevo en un momento." },
+  "Nada em risco na fila.": { es: "Nada en riesgo en la fila." },
+  "Detectores rodam automaticamente; quando algo esfriar, aparece aqui.": {
+    es: "Los detectores corren automáticamente; cuando algo se enfríe, aparece aquí.",
+  },
+  "Oportunidades abertas": { es: "Oportunidades abiertas" },
+  "Receita em risco": { es: "Ingresos en riesgo" },
+  "Receita direta": { es: "Ingresos directos" },
+  "Receita recuperada": { es: "Ingresos recuperados" },
+  "Sem valor na janela": { es: "Sin valor en la ventana" },
+  "itens": { es: "ítems" },
+  "Conta não vinculada": { es: "Cuenta no vinculada" },
+  "Abrir conta": { es: "Abrir cuenta" },
+  "Ver pedido": { es: "Ver pedido" },
+  "A prioridade é calculada pelo sistema (severidade, prazo, valor). Resumo em moeda nativa — consolidação multi-moeda não é suportada.": {
+    es: "La prioridad la calcula el sistema (severidad, plazo, valor). Resumen en moneda nativa — la consolidación multi-moneda no es compatible.",
+  },
+  "← Contas B2B": { es: "← Cuentas B2B" },
+  "Confirmar pedido": { es: "Confirmar pedido" },
+  "Receita em risco nesta conta não aparece": { es: "Ingresos en riesgo en esta cuenta no aparecen" },
+  "Conversas recentes": { es: "Conversaciones recientes" },
+  "Oportunidades": { es: "Oportunidades" },
+  "Receita": { es: "Ingresos" },
+  "Eventos de receita": { es: "Eventos de ingresos" },
+  "Nenhum contato vinculado.": { es: "Ningún contacto vinculado." },
+  "Nenhuma conversa registrada.": { es: "Ninguna conversación registrada." },
+  "Nenhuma oportunidade aberta.": { es: "Ninguna oportunidad abierta." },
+  "Nenhum pedido ainda.": { es: "Ningún pedido todavía." },
+  "Nada em risco nesta conta.": { es: "Nada en riesgo en esta cuenta." },
+  "Nenhum evento de receita registrado.": { es: "Ningún evento de ingresos registrado." },
+  "Rascunho sem linhas — atualize-o antes de confirmar.": {
+    es: "Borrador sin líneas — actualízalo antes de confirmar.",
+  },
+  "Pedido confirmado": { es: "Pedido confirmado" },
+  "Voltar para contas": { es: "Volver a cuentas" },
+  "O que está em risco agora, por quê, e qual a próxima ação — prioridade calculada pelo sistema.": {
+    es: "Qué está en riesgo ahora, por qué, y cuál es la próxima acción — prioridad calculada por el sistema.",
+  },
+
 };
 
 /**

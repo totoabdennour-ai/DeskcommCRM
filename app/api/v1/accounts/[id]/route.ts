@@ -126,7 +126,7 @@ export async function GET(_req: NextRequest, ctx: Ctx): Promise<Response> {
     .limit(50);
 
   const idsDeContato = (contatos ?? []).map((c) => (c as { id: string }).id);
-  const [opps, ords, rsk, evs] = await Promise.all([
+  const [opps, ords, rsk, evs, convs] = await Promise.all([
     supabase
       .from("crm_leads")
       .select("id, title, status, value_cents, currency, stage_id, lost_reason")
@@ -159,13 +159,47 @@ export async function GET(_req: NextRequest, ctx: Ctx): Promise<Response> {
       .eq("account_id", id)
       .order("occurred_at", { ascending: false })
       .limit(100),
+    supabase
+      .from("conversations")
+      .select("id, contact_id, status, last_message_at, bot_silenced_until")
+      .eq("organization_id", authz.org.orgId)
+      .in("contact_id", idsDeContato.length > 0 ? idsDeContato : ["00000000-0000-4000-8000-000000000000"])
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(10),
   ]);
+
+  // Itens dos rascunhos abertos (a ação "confirmar" do operador precisa das
+  // linhas que a rota de confirmação exige no corpo — A6: elas são
+  // re-resolvidas pelo servidor no momento da confirmação).
+  const pedidosRows = (ords.data ?? []) as unknown as Array<{
+    id: string;
+    status: string;
+  }>;
+  const idsDeRascunho = pedidosRows.filter((p) => p.status === "draft").map((p) => p.id);
+  const { data: itensDeRascunho } = await supabase
+    .from("order_items")
+    .select("order_id, sku, nome, quantity, unit_price_cents, moeda")
+    .eq("organization_id", authz.org.orgId)
+    .in("order_id", idsDeRascunho.length > 0 ? idsDeRascunho : ["00000000-0000-4000-8000-000000000000"]);
 
   // Valores SOMADOS a partir das linhas já lidas (determinístico, na moeda
   // nativa de cada linha — consolidação multi-moeda segue deferida, doc 28).
   const receitaConfirmada = ((ords.data ?? []) as Array<{ status: string; total_cents: number; currency: string }>)
     .filter((p) => ["confirmed", "fulfilled", "delivered", "closed"].includes((p as { status: string }).status))
     .map((p) => (p as { total_cents: number; currency: string }));
+
+  // Agrupamento POR MOEDA feito no SERVIDOR a partir das linhas authoritativas
+  // (F7 fix do contrato: o campo `moeda` antigo devolvia `accounts.settings` —
+  // um jsonb de configuração rotulado de moeda, enganoso). Native currency
+  // segue authoritative; consolidação segue deferida (doc 28 §A4/17-Q3).
+  const receitaPorMoeda = Object.entries(
+    receitaConfirmada.reduce<Record<string, { total_cents: number; pedidos: number }>>((acc, p) => {
+      acc[p.currency] = acc[p.currency] ?? { total_cents: 0, pedidos: 0 };
+      acc[p.currency]!.total_cents += p.total_cents;
+      acc[p.currency]!.pedidos += 1;
+      return acc;
+    }, {}),
+  ).map(([moeda, v]) => ({ moeda, ...v }));
 
   type LinhaDeRisco = {
     status: string;
@@ -184,13 +218,15 @@ export async function GET(_req: NextRequest, ctx: Ctx): Promise<Response> {
     {
       conta,
       contatos: contatos ?? [],
+      conversas: (convs.data ?? []) as unknown as Array<{ id: string; contact_id: string; status: string; last_message_at: string | null }>,
       oportunidades: (opps.data ?? []) as unknown as Array<{ id: string; title: string | null; status: string; value_cents: number | null; currency: string | null; stage_id: string; lost_reason: string | null }>,
       pedidos: (ords.data ?? []) as unknown as Array<{ id: string; external_id: string; origin: string; status: string; total_cents: number; currency: string; ordered_at: string | null; created_at: string }>,
+      itens_de_rascunho: (itensDeRascunho ?? []) as unknown as Array<{ order_id: string; sku: string; nome: string; quantity: number; unit_price_cents: number; moeda: string }>,
       receita: {
         confirmada: receitaConfirmada,
         total_confirmado_cents: receitaConfirmada.reduce((a, p) => a + p.total_cents, 0),
-        moeda: conta ? (conta as { settings: Record<string, unknown> }).settings : null,
-        nota: "consolidação multi-moeda deferida (doc 28 §A4/17-Q3)",
+        por_moeda: receitaPorMoeda,
+        nota: "consolidação multi-moeda deferida (doc 28 §A4/17-Q3); native currency é authoritative",
       },
       revenue_at_risk: { abertos: riscosAbertos, todos: riscos },
       recuperados,
